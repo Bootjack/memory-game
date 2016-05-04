@@ -68,10 +68,6 @@ Deck.prototype = {
             i = 0,
             rand;
 
-        function reverseCardSort (a, b) {
-            return a.value - b.value;
-        }
-
         while (i < this.size * this.size) {
             rand = Math.floor(Math.random() * this.cards.length);
             cuts.first = this.cards.splice(rand);
