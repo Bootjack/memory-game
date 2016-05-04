@@ -3,9 +3,10 @@ function Card (config) {
     config = config || {};
     this.value = config.value || '';
     this.isFaceUp = false;
+    this.isMatched = false;
     this.element = config.element || document.createElement('div');
     this.element.addEventListener('click', function (evt) {
-        self.clickHandler(evt);
+        self.clickHandler(evt, self);
     });
 
     // If no click handler is provided, let it use the prototype
@@ -19,7 +20,9 @@ Card.prototype = {
     },
     flip: function (forceDirection) {
         // Flip the card, toggling its visibility
-        this.isFaceUp = (undefined === forceDirection ? !this.isFaceUp : !!forceDirection);
+        if (!this.isMatched) {
+            this.isFaceUp = (undefined === forceDirection ? !this.isFaceUp : !!forceDirection);
+        }
 
         return this;
     },
@@ -43,19 +46,25 @@ function Deck (config) {
         value;
 
     config = config || {};
-    this.size = size = config.size || 8;
+    this.size = size = config.size || 10;
+    this.cardClickHandler = config.cardClickHandler;
     this.cards = cards;
 
     while (size > 0) {
-        cards.push(new Card({value: size}));
-        cards.push(new Card({value: size}));
+        cards.push(new Card({
+            value: size,
+            clickHandler: this.cardClickHandler
+        }));
+        cards.push(new Card({
+            value: size,
+            clickHandler: this.cardClickHandler
+        }));
         size -= 1;
     }
 }
 Deck.prototype = {
     shuffle: function () {
-        var firstCut,
-            secondCut,
+        var cuts = {},
             i = 0,
             rand;
 
@@ -63,14 +72,14 @@ Deck.prototype = {
             return a.value - b.value;
         }
 
-        while (i < this.size * 4) {
+        while (i < this.size * this.size) {
             rand = Math.floor(Math.random() * this.cards.length);
-            firstCut = this.cards.splice(rand);
+            cuts.first = this.cards.splice(rand);
 
             rand = Math.floor(Math.random() * this.cards.length);
-            secondCut = this.cards.splice(rand);
+            cuts.second = this.cards.splice(rand);
 
-            this.cards = secondCut.concat(this.cards, firstCut);
+            this.cards = cuts.first.concat(cuts.second, this.cards);
             i += 1;
         }
 
@@ -80,9 +89,14 @@ Deck.prototype = {
 
 function Game (config) {
     config = config || {};
-    this.deck = new Deck();
+    this.deck = new Deck({
+        cardClickHandler: this.cardClickHandler.bind(this)
+    });
+    this.isPaused = false;
+    this.pauseDelay = config.pauseDelay || 1000;
     this.element = config.element || document.createElement('div');
     this.element.className = 'memory-game';
+    this.choices = [];
 }
 Game.prototype = {
     start: function () {
@@ -99,6 +113,41 @@ Game.prototype = {
             element.appendChild(card.element);
             card.render();
         });
+    },
+    cardClickHandler: function (evt, card) {
+        if (!this.isPaused && -1 === this.choices.indexOf(card)) {
+            card.flip().render();
+            this.choices.push(card);
+            this.testMatch();
+            this.endTurn();
+        }
+    },
+    testMatch: function () {
+        var values = this.choices.map(card => card.value);
+        if (this.choices.length === 2 && values[0] === values[1]) {
+            this.choices.forEach(card => card.isMatched = true);
+        }
+    },
+    endTurn: function () {
+        if (this.choices.length > 1) {
+            this.isPaused = true;
+            setTimeout(() => {
+                this.choices.forEach(card => card.flip(false).render());
+                this.choices = [];
+                this.isPaused = false;
+                this.testWin();
+            }, this.pauseDelay);
+        }
+    },
+    testWin: function () {
+        if (this.deck.cards.every(card => card.isMatched)) {
+            this.deck.cards.forEach(function (card) {
+                card.isMatched = false;
+                card.isFaceUp = false;
+                card.render();
+            });
+            this.start();
+        }
     }
 };
 

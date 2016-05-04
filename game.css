@@ -4,6 +4,7 @@
     border-radius: 0.25em 0;
     box-shadow: inset 5px 5px 0 white, inset -5px -5px 0 white;
     color: rgb(100, 45, 45);
+    cursor: pointer;
     display: inline-block;
     font-size: 2em;
     height: 4em;
